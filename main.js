@@ -17,7 +17,7 @@ import {
  * @typedef {[Vector3, Vector3, Vector3]} Triangle
  */
 
-const canvas = document.getElementById('renderCanvas');
+const canvas = document.getElementsByTagName('canvas')[0];
 const engine = new Engine(canvas, true);
 
 const createScene = () => {
@@ -45,16 +45,17 @@ const createScene = () => {
     cushionMaterial.roughness = 1;
 
     const headband = makeHeadband(scene, "headband");
+    headband.inner.position.y += 2;
 
     const muffX = 4.9;
-    const muffY = -4.8;
+    const muffY = -4.8 * 1.05;
     const muffScale = 0.75;
     const muffRotation = Math.PI / 2;
 
     const leftEarMuff = makeMuff(scene, "leftEarMuff");
     leftEarMuff.root.parent = headband.left;
     leftEarMuff.root.position = new Vector3(-muffX, muffY, 0);
-    leftEarMuff.root.scaling = new Vector3(muffScale, muffScale, muffScale);
+    leftEarMuff.root.scaling = new Vector3(muffScale, muffScale  * 1.1, muffScale);
     leftEarMuff.root.rotation.y = muffRotation;
     leftEarMuff.root.rotation.x = -Math.PI/16;
     leftEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = muffMaterial);
@@ -63,7 +64,7 @@ const createScene = () => {
     const rightEarMuff = makeMuff(scene, "rightEarMuff");
     rightEarMuff.root.parent = headband.right;
     rightEarMuff.root.position = new Vector3(muffX, muffY, 0);
-    rightEarMuff.root.scaling = new Vector3(muffScale, muffScale, muffScale);
+    rightEarMuff.root.scaling = new Vector3(muffScale, muffScale  * 1.1, muffScale);
     rightEarMuff.root.rotation.y = -muffRotation;
     rightEarMuff.root.rotation.x = -Math.PI/16;
     rightEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = material);
@@ -149,7 +150,7 @@ function makeMuff(scene, name) {
     const root = new TransformNode("earMuff", scene);
     const base = makeMuffBase(scene, center, radius, baseThickness, `${name}_base`);
     const cushion = makeMuffCushion(scene, center, radius, cushionThickness, `${name}_cushion`);
-    const brace = makeMuffBrace(scene, center, radius, braceThickness, braceWidth, `${name}_brace`);
+    const brace = makeMuffBrace(scene, center, radius * 1.01, braceThickness, braceWidth, `${name}_brace`);
     brace.parent = root;
     base.parent = brace;
     base.rotation.x = Math.PI/16;
@@ -176,16 +177,16 @@ function makeMuff(scene, name) {
  * @returns {Mesh} Base mesh
  */
 function makeMuffBase(scene, center, radius, thickness, name) {
-    const pointCount = 32;
+    const pointCount = 64 + 1;
 
-    const circleA = makeArc(center.add(new Vector3(0, 0, thickness / 2)), radius, pointCount, 0, 360);
-    const circleB = makeArc(center.add(new Vector3(0, 0, -thickness / 2)), radius, pointCount, 0, 360);
+    const innerCircle = makeArc(center.add(new Vector3(0, 0, thickness / 2)), radius, pointCount, 0, 360);
+    const outerCircle = makeArc(center.add(new Vector3(0, 0, -thickness / 2)), radius, pointCount, 0, 360);
 
-    const quads = quadsFromLines(circleA, circleB);
+    const quads = quadsFromLines(innerCircle, outerCircle);
     const triangles = [
         ...quads.flatMap(quad => triangulateQuad(quad)),
-        ...makeTriangleFan(toReversed(circleA)),
-        ...makeTriangleFan(circleB)
+        // ...makeTriangleFan(toReversed(innerCircle)),
+        ...makeTriangleFan(outerCircle)
     ];
 
     return makeMeshFromPoints(scene, name, triangles.flat())
@@ -205,7 +206,7 @@ function makeMuffBase(scene, center, radius, thickness, name) {
  */
 function makeMuffBrace(scene, center, radius, thickness, width, name) {
     const pointCount = 55;
-    const capPointCount = 9;
+    const capPointCount = 15;
 
     const arcTopCenter = makeArc(center.add(new Vector3(0, 0, 0)), radius * 1.1, pointCount, 0, 180);
     const arcBottomCenter = makeArc(center.add(new Vector3(0, 0, 0)), radius, pointCount, 0, 180);
@@ -293,30 +294,29 @@ function makeMuffBrace(scene, center, radius, thickness, width, name) {
  * @param radius
  * @param thickness
  * @param name - Name of the node
+ *
  * @returns {Mesh}
  */
 function makeMuffCushion(scene, center, radius, thickness, name) {
-    const pointCount = 64
+    const pointCount = 64 + 1;
+    const subPointCount = 16;
 
-    const arcs = [
-        makeCircle(center.add(new Vector3(0, 0, -thickness / 2)), radius * 0.975, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 5)), radius * 0.95, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 3)), radius * 0.92, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 2.25)), radius * 0.85, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 2)), radius * 0.75, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 2)), radius * 0.7, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 2.25)), radius * 0.6, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 3)), radius * 0.5, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, thickness / 20)), radius * 0.4, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, -thickness / 5)), radius * 0.4, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, -thickness / 3)), radius * 0.4, pointCount),
-        makeCircle(center.add(new Vector3(0, 0, -thickness / 2.8)), radius * 0.2, pointCount),
-    ];
+    const subRadius = radius * 0.3;
 
-    const quads = arcs.slice(0, arcs.length - 1).flatMap((arc, i) => quadsFromLines(arcs[(i < arcs.length - 1 ? i + 1 : 0)], arc));
+    const baseArc = makeArc(center, radius * 1.075 - subRadius, pointCount, 0, 360);
+    const arcs = baseArc
+        .map(subCenter => [makeArc(subCenter, subRadius, subPointCount, -60, 180), subCenter])
+        .map(([arc, arcCenter ]) => [arc, arcCenter, arcCenter.subtract(center).normalize()])
+        .map(([arc, arcCenter, centerVector], index) => [rotatePointsByPointAndAxis(arc, arcCenter, new Vector3(0, 0, 1), (360 / (pointCount - 1)) * index), center, centerVector])
+        .map(([arc, arcCenter, centerVector]) => rotatePointsByPointAndAxis(arc, arcCenter, centerVector, 90))
+        .map(arc => [...arc, arc[arc.length - 1].add(new Vector3(0, 0, -thickness / 4)), arc[arc.length - 1].add(new Vector3(0, 0, -thickness / 4 * 3)), arc[arc.length - 1].add(new Vector3(0, 0, -thickness))])
+        .map(arc => arc.map(point => point.add(new Vector3(0, 0, -thickness / 5))))
+        .map(arc => scalePointsRelativeToPointByVector(arc, center, new Vector3(1, 1, 0.8)));
+
+    const quads = arcs.flatMap((arc, i) => quadsFromLines(arc, arcs[(i < arcs.length - 1 ? i + 1 : 0)]));
     const triangles = [
         ...quads.flatMap(quad => triangulateQuad(quad)),
-        ...makeTriangleFan(toReversed(arcs[arcs.length - 1]))
+        ...makeTriangleFan(toReversed(arcs.map(arc => arc[arc.length - 1]))),
     ];
 
     return makeMeshFromPoints(scene, name, triangles.flat())
@@ -327,12 +327,12 @@ function makeMuffCushion(scene, center, radius, thickness, name) {
  *
  * @param {Scene} scene - BabylonJS scene
  * @param {string} name - Name of the node
+ *
  * @returns {{center: Mesh, left: Mesh, right: Mesh, inner: Mesh}} Headband meshes
  */
 function makeHeadband(scene, name) {
-    // const center = new Vector3(0, 1.75, 0);
     const radius = 5.5;
-    const z = 0.5;
+    const z = 0.75;
 
     const arcBasesSides = [
         {radius: radius, z: z},
@@ -462,6 +462,7 @@ function makeHeadphonesBar (scene, name, bases, basesCounts, startAngle, endAngl
  * @param {Scene} scene - BabylonJS scene
  * @param {string} name - Name of the mesh
  * @param {Vector3[]} rawPoints - List of points
+ *
  * @returns {Mesh}
  */
 function makeMeshFromPoints(scene, name, rawPoints) {
@@ -566,7 +567,20 @@ function rotatePointByPointAndAxis(point, center, axis, angle) {
  * @returns {Vector3[]} Scaled points
  */
 function scalePointsRelativeToPoint(points, center, scale) {
-    return points.map(point => scalePointRelativeToCenter(point, center, scale));
+    return points.map(point => scalePointRelativeToPoint(point, center, scale));
+}
+
+/**
+ * Scales a list of points relative to a center point by vector
+ *
+ * @param {Vector3[]} points - List of points
+ * @param {Vector3} center - Center of scaling
+ * @param {Vector3} scale - Scale factor
+ *
+ * @returns {Vector3[]} Scaled points
+ */
+function scalePointsRelativeToPointByVector(points, center, scale) {
+    return points.map(point => scalePointRelativeToPointByVector(point, center, scale));
 }
 
 
@@ -579,8 +593,21 @@ function scalePointsRelativeToPoint(points, center, scale) {
  *
  * @returns {Vector3} Scaled point
  */
-function scalePointRelativeToCenter(point, center, scale) {
+function scalePointRelativeToPoint(point, center, scale) {
     return point.subtract(center).scaleInPlace(scale).addInPlace(center);
+}
+
+/**
+ * Scales a point relative to a center point
+ *
+ * @param {Vector3} point - Point to scale
+ * @param {Vector3} center - Center of scaling
+ * @param {Vector3} scale - Scale factor
+ *
+ * @returns {Vector3} Scaled point
+ */
+function scalePointRelativeToPointByVector(point, center, scale) {
+    return point.subtract(center).multiplyInPlace(scale).addInPlace(center);
 }
 
 /**
@@ -612,6 +639,7 @@ function makeDebugCubesAtPoints(points, radius, growing = false) {
  *
  * @param {Vector3} center
  * @param {number} radius
+ *
  * @returns {Quad[]}
  */
 
@@ -652,6 +680,7 @@ function makeCube(center, radius) {
  *
  * @param {Vector3[]} lineA points in the first line
  * @param {Vector3[]} lineB points in the second line
+ *
  * @returns {Quad[]} array of quads
  */
 function quadsFromLines(lineA, lineB) {
@@ -675,6 +704,7 @@ function quadsFromLines(lineA, lineB) {
  * Generates triangles from a quad
  *
  * @param {Quad} quad indices of points in the quad
+ *
  * @returns {Triangle[]}
  */
 function triangulateQuad(quad) {
@@ -691,6 +721,7 @@ function triangulateQuad(quad) {
  * Generates indices from a list of points
  *
  * @param {Vector3[]} rawPoints
+ *
  * @returns {{indices: number[], points: Vector3[]}}
  */
 function indexPoints(rawPoints) {
@@ -732,6 +763,7 @@ function indexPoints(rawPoints) {
  * Generates a unique hash for a Vector3 object
  *
  * @param {Vector3} vector
+ *
  * @returns {string} Hash
  */
 function hashVector3(vector) {
@@ -743,6 +775,7 @@ function hashVector3(vector) {
  *
  * @param {number} value
  * @param {number} n Number of decimal places
+ *
  * @returns {number}
  */
 function roundToNDecimals(value, n) {
@@ -754,6 +787,7 @@ function roundToNDecimals(value, n) {
  * Calculates the center of mass for a list of points
  *
  * @param {Vector3[]} points - List of points
+ *
  * @returns {Vector3} Center of mass
  */
 function pointsCenterOfMass(points) {
@@ -771,6 +805,7 @@ function pointsCenterOfMass(points) {
  *
  * @param {Vector3[]} points - List of points
  * @param {Vector3} center - Center of the fan
+ *
  * @returns {Triangle[]} List of triangles
  */
 function makeTriangleFan(points, center = pointsCenterOfMass(points)) {
@@ -791,6 +826,7 @@ function makeTriangleFan(points, center = pointsCenterOfMass(points)) {
  *
  * @template T
  * @param {T[]} array
+ *
  * @returns {T[]}
  */
 function toReversed(array) {
@@ -800,7 +836,7 @@ function toReversed(array) {
 }
 
 /**
- * Generates a grid of points
+ * Generates a grid of points by averaging positions of the surrounding points
  *
  * @param {Vector3[]} top
  * @param {Vector3[]} bottom
