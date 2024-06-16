@@ -30,6 +30,7 @@ const createScene = () => {
 
     const material = new StandardMaterial("material", scene);
     material.diffuseColor = new Color3(0.2, 0.2, 0.2);
+    material.wireframe = true;
 
     const muffMaterial = new PBRMaterial("muffMaterial", scene);
     muffMaterial.reflectionColor = new Color3(0.05, 0.05, 0.05);
@@ -44,14 +45,14 @@ const createScene = () => {
     cushionMaterial.roughness = 1;
 
     const headband = makeHeadband(scene, "headband");
-    headband.material = muffMaterial;
 
     const muffX = 4.9;
-    const muffY = -2.55;
+    const muffY = -4.8;
     const muffScale = 0.75;
     const muffRotation = Math.PI / 2;
 
     const leftEarMuff = makeMuff(scene, "leftEarMuff");
+    leftEarMuff.root.parent = headband.left;
     leftEarMuff.root.position = new Vector3(-muffX, muffY, 0);
     leftEarMuff.root.scaling = new Vector3(muffScale, muffScale, muffScale);
     leftEarMuff.root.rotation.y = muffRotation;
@@ -60,19 +61,23 @@ const createScene = () => {
     leftEarMuff.cushion.material = cushionMaterial;
 
     const rightEarMuff = makeMuff(scene, "rightEarMuff");
+    rightEarMuff.root.parent = headband.right;
     rightEarMuff.root.position = new Vector3(muffX, muffY, 0);
     rightEarMuff.root.scaling = new Vector3(muffScale, muffScale, muffScale);
     rightEarMuff.root.rotation.y = -muffRotation;
     rightEarMuff.root.rotation.x = -Math.PI/16;
-    rightEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = muffMaterial);
-    rightEarMuff.cushion.material = cushionMaterial;
+    rightEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = material);
+    // rightEarMuff.cushion.material = cushionMaterial;
 
-    const muffBraceMaxYRotation = 110 * Math.PI / 180;
-    const muffBraceMinYRotation = 0;
-    const muffBraceRotationSpeed = Math.PI/5000;
+    // headband.left.rotation.z = Math.PI / 16;
+    // headband.right.rotation.z = -Math.PI / 16;
 
-    let muffBraceTargetYRotation = muffBraceMaxYRotation;
-    let muffBraceCurrentYRotation = muffBraceMinYRotation;
+    // const muffBraceMaxYRotation = 110 * Math.PI / 180;
+    // const muffBraceMinYRotation = 0;
+    // const muffBraceRotationSpeed = Math.PI/5000;
+    //
+    // let muffBraceTargetYRotation = muffBraceMaxYRotation;
+    // let muffBraceCurrentYRotation = muffBraceMinYRotation;
 
     scene.createDefaultEnvironment({
         createSkybox: true,
@@ -83,31 +88,38 @@ const createScene = () => {
         environmentTexture: CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/environments/environmentSpecular.env", scene)
     })
 
-    scene.registerBeforeRender(() => {
-        const deltaTime = scene.getEngine().getDeltaTime()
+    let isAnimating = false;
+    function animate() {
+        isAnimating = true;
+    }
+    //
+    // scene.registerBeforeRender(() => {
+    //     if (!isAnimating) return
+    //
+    //     const deltaTime = scene.getEngine().getDeltaTime()
+    //
+    //     const diff = muffBraceTargetYRotation - muffBraceCurrentYRotation;
+    //     const sign = Math.sign(diff);
+    //     const rotation = sign * Math.min(Math.abs(diff), muffBraceRotationSpeed * deltaTime);
+    //
+    //     muffBraceCurrentYRotation += rotation;
+    //
+    //     if (muffBraceCurrentYRotation >= muffBraceMaxYRotation) {
+    //         muffBraceCurrentYRotation = muffBraceMaxYRotation;
+    //         muffBraceTargetYRotation = muffBraceMinYRotation;
+    //     } else if (muffBraceCurrentYRotation <= muffBraceMinYRotation) {
+    //         muffBraceCurrentYRotation = muffBraceMinYRotation;
+    //         muffBraceTargetYRotation = muffBraceMaxYRotation;
+    //     }
+    //
+    //     leftEarMuff.brace.rotation.y = muffBraceCurrentYRotation - 20 * Math.PI / 180;
+    //     rightEarMuff.brace.rotation.y = -muffBraceCurrentYRotation + 20 * Math.PI / 180;
+    // });
 
-        const diff = muffBraceTargetYRotation - muffBraceCurrentYRotation;
-        const sign = Math.sign(diff);
-        const rotation = sign * Math.min(Math.abs(diff), muffBraceRotationSpeed * deltaTime);
-
-        muffBraceCurrentYRotation += rotation;
-
-        if (muffBraceCurrentYRotation >= muffBraceMaxYRotation) {
-            muffBraceCurrentYRotation = muffBraceMaxYRotation;
-            muffBraceTargetYRotation = muffBraceMinYRotation;
-        } else if (muffBraceCurrentYRotation <= muffBraceMinYRotation) {
-            muffBraceCurrentYRotation = muffBraceMinYRotation;
-            muffBraceTargetYRotation = muffBraceMaxYRotation;
-        }
-
-        leftEarMuff.brace.rotation.y = muffBraceCurrentYRotation - 20 * Math.PI / 180;
-        rightEarMuff.brace.rotation.y = -muffBraceCurrentYRotation + 20 * Math.PI / 180;
-    });
-
-    return scene;
+    return {scene, animate};
 };
 
-const scene = createScene();
+const {scene, animate} = createScene();
 engine.runRenderLoop(() => {
     scene.render();
 });
@@ -192,38 +204,80 @@ function makeMuffBase(scene, center, radius, thickness, name) {
  * @returns {Mesh} Base mesh
  */
 function makeMuffBrace(scene, center, radius, thickness, width, name) {
-    const pointCount = 32;
+    const pointCount = 55;
     const capPointCount = 9;
+
+    const arcTopCenter = makeArc(center.add(new Vector3(0, 0, 0)), radius * 1.1, pointCount, 0, 180);
+    const arcBottomCenter = makeArc(center.add(new Vector3(0, 0, 0)), radius, pointCount, 0, 180);
 
     const mainArcs = [
         makeArc(center.add(new Vector3(0, 0, -thickness / 2)), radius * 1.1, pointCount, 0, 180),
-        makeArc(center.add(new Vector3(0, 0, 0)), radius * 1.1, pointCount, 0, 180),
+        makeArc(center.add(new Vector3(0, 0, -thickness / 4)), radius * 1.1, pointCount, 0, 180),
+        arcTopCenter,
+        makeArc(center.add(new Vector3(0, 0, thickness / 4)), radius * 1.1, pointCount, 0, 180),
         makeArc(center.add(new Vector3(0, 0, thickness / 2)), radius * 1.1, pointCount, 0, 180),
         makeArc(center.add(new Vector3(0, 0, thickness / 2)), radius, pointCount, 0, 180),
-        makeArc(center.add(new Vector3(0, 0, 0)), radius, pointCount, 0, 180),
+        makeArc(center.add(new Vector3(0, 0, thickness / 4)), radius, pointCount, 0, 180),
+        arcBottomCenter,
+        makeArc(center.add(new Vector3(0, 0, -thickness / 4)), radius, pointCount, 0, 180),
         makeArc(center.add(new Vector3(0, 0, -thickness / 2)), radius, pointCount, 0, 180),
     ]
 
+    const topArcs = Array.from({length: Math.floor(mainArcs.length / 2)}, (_, i) => i).map(i => mainArcs[i]); //First half of the arcs
+    const centerTopArcs = topArcs.slice(1, topArcs.length - 1); //Top arcs without first and last
+
     const capArcsFront = [
-        rotatePointsByPointAndAxis(makeArc(mainArcs[1][pointCount - 1], thickness / 2, capPointCount, 180, 360), mainArcs[1][pointCount - 1], new Vector3(0, 1, 0), 90),
-        rotatePointsByPointAndAxis(makeArc(mainArcs[4][pointCount - 1], thickness / 2, capPointCount, 180, 360), mainArcs[4][pointCount - 1], new Vector3(0, 1, 0), 90),
+        rotatePointsByPointAndAxis(makeArc(arcTopCenter[arcTopCenter.length - 1], thickness / 2, capPointCount, 180, 360), arcTopCenter[arcTopCenter.length - 1], new Vector3(0, 1, 0), 90),
+        rotatePointsByPointAndAxis(makeArc(arcBottomCenter[arcBottomCenter.length - 1], thickness / 2, capPointCount, 180, 360), arcBottomCenter[arcBottomCenter.length - 1], new Vector3(0, 1, 0), 90),
     ]
 
     const capArcsBack = [
-        rotatePointsByPointAndAxis(makeArc(mainArcs[1][0], thickness / 2, capPointCount, 180, 360), mainArcs[1][0], new Vector3(0, 1, 0), 90),
-        rotatePointsByPointAndAxis(makeArc(mainArcs[4][0], thickness / 2, capPointCount, 180, 360), mainArcs[4][0], new Vector3(0, 1, 0), 90),
+        rotatePointsByPointAndAxis(makeArc(arcTopCenter[0], thickness / 2, capPointCount, 180, 360), arcTopCenter[0], new Vector3(0, 1, 0), 90),
+        rotatePointsByPointAndAxis(makeArc(arcBottomCenter[0], thickness / 2, capPointCount, 180, 360), arcBottomCenter[0], new Vector3(0, 1, 0), 90),
     ]
 
+    const arcQuadRibbons = mainArcs.map((arc, i) => quadsFromLines(mainArcs[(i < mainArcs.length - 1 ? i + 1 : 0)], arc));
+    const quadRibbonsToSpliceIndices = Array.from({length: Math.floor(mainArcs.length / 2) - 1}, (_, i) => i);
+    const centerSlicePointIndex = Math.floor(arcQuadRibbons[0].length / 2);
+    for (const i of quadRibbonsToSpliceIndices) {
+        arcQuadRibbons[i].splice(centerSlicePointIndex - 2, 4)
+    }
+
+    const centerVertexIndex = Math.floor(centerTopArcs[0].length / 2);
+    /** @type {number[]} */
+    const centerFiveVertexIndices = Array.from({length: 5}, (_, i) => (i + centerVertexIndex - 2));
+
+    const braceScrewBaseVertices = [
+        ...toReversed(topArcs[0].slice(centerFiveVertexIndices[0], centerFiveVertexIndices[centerFiveVertexIndices.length - 1] + 1)),
+        ...centerTopArcs.map(arc => arc[centerVertexIndex - 2]),
+        ...topArcs[topArcs.length - 1].slice(centerFiveVertexIndices[0], centerFiveVertexIndices[centerFiveVertexIndices.length - 1] + 1),
+        ...toReversed(centerTopArcs.map(arc => arc[centerVertexIndex + 2])),
+    ]
+    braceScrewBaseVertices.push(braceScrewBaseVertices[0]);
+
+    let braceScrewLowerMiddleVertices = braceScrewBaseVertices.map(v => ({x: v.x, y: v.y, z: v.z})).map(v => new Vector3(v.x, v.y += width / 3, v.z));
+    braceScrewLowerMiddleVertices.forEach(v => v.y = braceScrewLowerMiddleVertices[0].y);
+    const braceScrewLowerMiddleCenter = pointsCenterOfMass(braceScrewLowerMiddleVertices.slice(0, -1)).add(new Vector3(0, 0.2, 0));
+    braceScrewLowerMiddleVertices = scalePointsRelativeToPoint(braceScrewLowerMiddleVertices, braceScrewLowerMiddleCenter, .7);
+
+    const braceScrewUpperMiddleCenter = braceScrewLowerMiddleCenter.add(new Vector3(0, width / 3, 0));
+    const braceScrewUpperMiddleVertices = rotatePointsByPointAndAxis(rotatePointsByPointAndAxis(makeCircle(braceScrewUpperMiddleCenter, width / 2, 17), braceScrewUpperMiddleCenter, new Vector3(1, 0, 0), 90), braceScrewUpperMiddleCenter, new Vector3(0, 1, 0), 180 - 45);
+
+    const braceScrewTopVertices = braceScrewUpperMiddleVertices.map(v => v.add(new Vector3(0, width / 2, 0)));
+
     const quads = [
-        ...mainArcs.flatMap((arc, i) => quadsFromLines(mainArcs[(i < mainArcs.length - 1 ? i + 1 : 0)], arc)),
+        ...arcQuadRibbons.flat(),
         ...quadsFromLines(capArcsFront[1], capArcsFront[0]),
         ...quadsFromLines(capArcsBack[0], capArcsBack[1]),
+        ...quadsFromLines(braceScrewBaseVertices, braceScrewLowerMiddleVertices),
+        ...quadsFromLines(braceScrewLowerMiddleVertices, braceScrewUpperMiddleVertices),
+        ...quadsFromLines(braceScrewUpperMiddleVertices, braceScrewTopVertices),
     ];
 
     const triangles = [
         ...quads.flatMap(quad => triangulateQuad(quad)),
-        ...makeTriangleFan(capArcsFront[0], mainArcs[1][pointCount - 1]),
-        ...makeTriangleFan(toReversed(capArcsBack[0]), mainArcs[1][0]),
+        ...makeTriangleFan([...capArcsFront[0], ...centerTopArcs.map(arc => arc[arc.length - 1])]),
+        ...makeTriangleFan(toReversed([...capArcsBack[0], ...centerTopArcs.map(arc => arc[0])])),
     ];
 
     return makeMeshFromPoints(scene, name, triangles.flat())
@@ -242,11 +296,12 @@ function makeMuffBrace(scene, center, radius, thickness, width, name) {
  * @returns {Mesh}
  */
 function makeMuffCushion(scene, center, radius, thickness, name) {
-    const pointCount = 32
+    const pointCount = 64
 
     const arcs = [
         makeCircle(center.add(new Vector3(0, 0, -thickness / 2)), radius * 0.975, pointCount),
         makeCircle(center.add(new Vector3(0, 0, thickness / 5)), radius * 0.95, pointCount),
+        makeCircle(center.add(new Vector3(0, 0, thickness / 3)), radius * 0.92, pointCount),
         makeCircle(center.add(new Vector3(0, 0, thickness / 2.25)), radius * 0.85, pointCount),
         makeCircle(center.add(new Vector3(0, 0, thickness / 2)), radius * 0.75, pointCount),
         makeCircle(center.add(new Vector3(0, 0, thickness / 2)), radius * 0.7, pointCount),
@@ -272,41 +327,132 @@ function makeMuffCushion(scene, center, radius, thickness, name) {
  *
  * @param {Scene} scene - BabylonJS scene
  * @param {string} name - Name of the node
- * @returns {Mesh} Headband mesh
+ * @returns {{center: Mesh, left: Mesh, right: Mesh, inner: Mesh}} Headband meshes
  */
 function makeHeadband(scene, name) {
-    const center = new Vector3(0, 1.75, 0);
+    // const center = new Vector3(0, 1.75, 0);
     const radius = 5.5;
-    const radiusExtension = 0.5;
     const z = 0.5;
 
-    const pointCount = 100;
+    const arcBasesSides = [
+        {radius: radius, z: z},
+        {radius: radius, z: z * 0.8},
+        {radius: radius, z: 0},
+        {radius: radius, z: -z * 0.8},
+        {radius: radius, z: -z},
+        {radius: radius * 1.05, z: -z},
+        {radius: radius * 1.1, z: -z},
+        {radius: radius * 1.1, z: -z * 0.8},
+        {radius: radius * 1.1, z: 0},
+        {radius: radius * 1.1, z: z * 0.8},
+        {radius: radius * 1.1, z: z},
+        {radius: radius * 1.05, z: z}
+    ];
 
-    const arcBases = [{
-        radius: radius,
-        z: z
-    }, {
-        radius: radius,
-        z: -z
-    }, {
-        radius: radius + radiusExtension,
-        z: -z
-    }, {
-        radius: radius + radiusExtension,
-        z: z
-    }];
-
-    const arcs = arcBases.map(base => makeArc(center.add(new Vector3(0, 0, base.z)), base.radius, pointCount, -15, 180+15));
-
-    /** @type {Triangle[]} */
-    const triangles = [];
-
-    for (let i = 0; i < arcs.length; i++) {
-        const quads = quadsFromLines(arcs[(i < arcs.length - 1 ? i + 1 : 0)], arcs[i]);
-        triangles.push(...quads.flatMap(quad => triangulateQuad(quad)));
+    const arcBasesSidesCounts = {
+        top: 5,
+        left: 1,
+        bottom: 5,
+        right: 1
     }
 
-    return makeMeshFromPoints(scene, name, triangles.flat())
+    const arcBasesCenter = [
+        {radius: radius * 1.02, z: z},
+        {radius: radius * 1.02, z: z * 0.8},
+        {radius: radius * 1.02, z: 0},
+        {radius: radius * 1.02, z: -z * 0.8},
+        {radius: radius * 1.02, z: -z},
+        {radius: radius * 1.05, z: -z},
+        {radius: radius * 1.08, z: -z},
+        {radius: radius * 1.08, z: -z * 0.8},
+        {radius: radius * 1.08, z: 0},
+        {radius: radius * 1.08, z: z * 0.8},
+        {radius: radius * 1.08, z: z},
+        {radius: radius * 1.05, z: z},
+    ];
+
+    const arcBasesCenterCounts = {
+        top: 5,
+        left: 1,
+        bottom: 5,
+        right: 1
+    }
+
+    const arcBasesInner = [
+        {radius: radius * 1.04, z: z * 0.8},
+        {radius: radius * 1.04, z: -z * 0.8},
+        {radius: radius * 1.06, z: -z * 0.8},
+        {radius: radius * 1.06, z: z * 0.8}
+    ];
+
+    const arcBasesInnerCounts = {
+        top: 2,
+        bottom: 2,
+        left: 0,
+        right: 0,
+    }
+
+    const gapSize = 2;
+    const leftStart = -15;
+    const rightStart = 180 + 15;
+    const sideBarSize = 60;
+
+    const centerBar = makeHeadphonesBar(scene, `${name}_center`, arcBasesCenter, arcBasesCenterCounts, leftStart + sideBarSize + gapSize, rightStart - sideBarSize - gapSize);
+    const rightBar = makeHeadphonesBar(scene, `${name}_right`, arcBasesSides, arcBasesSidesCounts, leftStart, leftStart + sideBarSize);
+    const leftBar = makeHeadphonesBar(scene, `${name}_left`, arcBasesSides, arcBasesSidesCounts, rightStart - sideBarSize, rightStart);
+    const innerBar = makeHeadphonesBar(scene, `${name}_inner`, arcBasesInner, arcBasesInnerCounts, leftStart + gapSize, rightStart - gapSize);
+
+    centerBar.parent = innerBar;
+    leftBar.parent = innerBar;
+    rightBar.parent = innerBar;
+
+    return {
+        center: centerBar,
+        left: leftBar,
+        right: rightBar,
+        inner: innerBar
+    };
+}
+
+/**
+ * Generates center bar for the headphones
+ *
+ * @param {Scene} scene - BabylonJS scene
+ * @param {string} name - Name of the node
+ * @param {{z: number, radius: number}[]} bases - List of points for the bases
+ * @param {{top: number, left: number, bottom: number, right: number}} basesCounts - Number of points for each side
+ * @param {number} startAngle - Start angle in degrees
+ * @param {number} endAngle - End angle in degrees
+ *
+ * @returns {Mesh} Headband mesh
+ */
+function makeHeadphonesBar (scene, name, bases, basesCounts, startAngle, endAngle) {
+    const pointCount = 64;
+    const arcs = bases.map(base => makeArc(new Vector3(0, 0, base.z), base.radius, pointCount, startAngle, endAngle));
+
+    const sideLines = {
+        top: arcs.slice(0, basesCounts.top),
+        left: arcs.slice(basesCounts.top, basesCounts.top + basesCounts.left),
+        bottom: arcs.slice(basesCounts.top + basesCounts.left, basesCounts.top + basesCounts.left + basesCounts.bottom),
+        right: arcs.slice(basesCounts.top + basesCounts.left + basesCounts.bottom, basesCounts.top + basesCounts.left + basesCounts.bottom + basesCounts.right),
+    }
+
+    const pointsOnSides = [0, arcs[0].length - 1].map(i => ({
+        top: toReversed(sideLines.top.map(line => line[i])),
+        left: toReversed(sideLines.left.map(line => line[i])),
+        bottom: sideLines.bottom.map(line => line[i]),
+        right: sideLines.right.map(line => line[i]),
+    }));
+
+    const grids = pointsOnSides.map(points => gridFill(points.top, points.bottom, points.left, points.right));
+
+    const quads = [
+        ...arcs.flatMap((_, i) => quadsFromLines(arcs[(i < arcs.length - 1 ? i + 1 : 0)], arcs[i])),
+        ...grids[0].slice(0, -1).flatMap((_, i) => quadsFromLines(grids[0][i], grids[0][i + 1])),
+        ...reverseQuads(grids[1].slice(0, -1).flatMap((_, i) => quadsFromLines(grids[1][i], grids[1][i + 1]))),
+    ];
+    const triangles = quads.flatMap(quad => triangulateQuad(quad));
+    return makeMeshFromPoints(scene, name, triangles.flat());
 }
 
 
@@ -411,18 +557,50 @@ function rotatePointByPointAndAxis(point, center, axis, angle) {
 }
 
 /**
+ * Scales a list of points relative to a center point
+ *
+ * @param {Vector3[]} points - List of points
+ * @param {Vector3} center - Center of scaling
+ * @param {number} scale - Scale factor
+ *
+ * @returns {Vector3[]} Scaled points
+ */
+function scalePointsRelativeToPoint(points, center, scale) {
+    return points.map(point => scalePointRelativeToCenter(point, center, scale));
+}
+
+
+/**
+ * Scales a point relative to a center point
+ *
+ * @param {Vector3} point - Point to scale
+ * @param {Vector3} center - Center of scaling
+ * @param {number} scale - Scale factor
+ *
+ * @returns {Vector3} Scaled point
+ */
+function scalePointRelativeToCenter(point, center, scale) {
+    return point.subtract(center).scaleInPlace(scale).addInPlace(center);
+}
+
+/**
+ * Generates debug cubes at points for debugging purposes, the cubes can grow in size sequentially if needed
  *
  * @param {Vector3[]} points
  * @param {number} radius
- * @returns {Quad[][]}
+ * @param {boolean} growing - If true, new cubes will be larger than the previous ones
+ *
+ * @returns {Quad[][]} List of cubes
  */
-function makeCubesAtPoints(points, radius) {
+function makeDebugCubesAtPoints(points, radius, growing = false) {
     /** @type {Quad[][]} */
     const Cubes = [];
 
+    let i = 1;
     for (const point of points) {
-        const cube = makeCube(point, radius);
+        const cube = makeCube(point, radius * (growing ? i * 0.1 : 1));
         Cubes.push(cube);
+        i += 1;
     }
 
     return Cubes;
@@ -430,7 +608,7 @@ function makeCubesAtPoints(points, radius) {
 
 
 /**
- * Generates a cube
+ * Generates a cube from a center point and a radius
  *
  * @param {Vector3} center
  * @param {number} radius
@@ -470,7 +648,7 @@ function makeCube(center, radius) {
 }
 
 /**
- * Generates quads from two lines
+ * Generates quads from two lines of points
  *
  * @param {Vector3[]} lineA points in the first line
  * @param {Vector3[]} lineB points in the second line
@@ -510,7 +688,7 @@ function triangulateQuad(quad) {
 }
 
 /**
- * Generates indices from a list of quads
+ * Generates indices from a list of points
  *
  * @param {Vector3[]} rawPoints
  * @returns {{indices: number[], points: Vector3[]}}
@@ -525,8 +703,10 @@ function indexPoints(rawPoints) {
     /** @type {Map<string, number>} */
     const pointIndexMap = new Map();
 
+    const decimals = 5;
+
     for (const point of rawPoints) {
-        const simplifiedPoint = new Vector3(roundToNDecimals(point.x, 3), roundToNDecimals(point.y, 3), roundToNDecimals(point.z, 3));
+        const simplifiedPoint = new Vector3(roundToNDecimals(point.x, decimals), roundToNDecimals(point.y, decimals), roundToNDecimals(point.z, decimals));
         const hash = hashVector3(simplifiedPoint);
 
         if (!pointIndexMap.has(hash)) {
@@ -540,6 +720,8 @@ function indexPoints(rawPoints) {
         }
     }
 
+    console.log(points.length)
+
     return {
         indices,
         points
@@ -547,7 +729,7 @@ function indexPoints(rawPoints) {
 }
 
 /**
- * Generates a hash for a Vector3 object
+ * Generates a unique hash for a Vector3 object
  *
  * @param {Vector3} vector
  * @returns {string} Hash
@@ -615,4 +797,72 @@ function toReversed(array) {
     const reversed = [...array];
     reversed.reverse();
     return reversed;
+}
+
+/**
+ * Generates a grid of points
+ *
+ * @param {Vector3[]} top
+ * @param {Vector3[]} bottom
+ * @param {Vector3[]} left
+ * @param {Vector3[]} right
+ *
+ * @returns {Vector3[][]}
+ */
+function gridFill(top, bottom, left, right) {
+    const numberOfLinesToFill = left.length;
+    const numberOfColumnsToFill = top.length - 2;
+
+    const lines = new Array(numberOfLinesToFill + 1);
+    lines[0] = top;
+
+    for (let i = 1; i < numberOfLinesToFill + 1; i++) {
+        lines[i] = new Array(numberOfColumnsToFill + 1);
+        lines[i][0] = left[i - 1];
+
+        for (let j = 1; j < numberOfColumnsToFill + 1; j++) {
+            const bottomLeft = lines[i][j - 1];
+            const topRight = lines[i - 1][j];
+            const topLeft = lines[i - 1][j - 1];
+
+            const center = bottomLeft.add(topRight).scale(0.5);
+            const vectorFromTopLeftToCenter = center.subtract(topLeft);
+
+            const vectorFromTopLeftToBottomRight = vectorFromTopLeftToCenter.scale(2);
+            const bottomRight = topLeft.add(vectorFromTopLeftToBottomRight);
+
+            lines[i][j] = bottomRight;
+        }
+
+        lines[i][numberOfColumnsToFill + 1] = right[i - 1];
+    }
+
+    lines[numberOfLinesToFill + 1] = bottom;
+
+    console.log(lines)
+
+    return lines;
+}
+
+
+/**
+ * Reverses a quad
+ *
+ * @param {Quad} quad
+ *
+ * @returns {Quad}
+ */
+function reverseQuad(quad) {
+    return [quad[3], quad[2], quad[1], quad[0]];
+}
+
+/**
+ * Reverses a list of quads
+ *
+ * @param {Quad[]} quads
+ *
+ * @returns {Quad[]}
+ */
+function reverseQuads(quads) {
+    return quads.map(reverseQuad);
 }
