@@ -1,15 +1,16 @@
 import {
-    Engine,
-    Scene,
     ArcRotateCamera,
-    HemisphericLight,
-    StandardMaterial,
-    PBRMaterial,
     Color3,
-    Vector3,
-    VertexData,
+    CubeTexture,
+    Engine,
+    HemisphericLight,
+    Matrix,
     Mesh,
-    TransformNode, Matrix, HDRCubeTexture, CubeTexture, Texture, MeshBuilder
+    PBRMaterial,
+    Scene,
+    TransformNode,
+    Vector3,
+    VertexData
 } from '@babylonjs/core';
 
 /**
@@ -28,23 +29,23 @@ const createScene = () => {
     const light = new HemisphericLight("light", new Vector3(1, 1, 0), scene);
     light.intensity = .75;
 
-    const material = new StandardMaterial("material", scene);
-    material.diffuseColor = new Color3(0.2, 0.2, 0.2);
-    material.wireframe = true;
-
-    const muffMaterial = new PBRMaterial("muffMaterial", scene);
-    muffMaterial.reflectionColor = new Color3(0.05, 0.05, 0.05);
-    muffMaterial.albedoColor = new Color3(0.1, 0.1, 0.1);
-    muffMaterial.metallic = 0;
-    muffMaterial.roughness = 0.25;
+    const bodyMaterial = new PBRMaterial("bodyMaterial", scene);
+    bodyMaterial.reflectionColor = new Color3(0.05, 0.05, 0.05);
+    bodyMaterial.albedoColor = new Color3(0.05, 0.05, 0.05);
+    bodyMaterial.metallic = 0;
+    bodyMaterial.roughness = 0.5;
 
     const cushionMaterial = new PBRMaterial("cushionMaterial", scene);
     cushionMaterial.reflectionColor = new Color3(0.05, 0.05, 0.05);
-    cushionMaterial.albedoColor = new Color3(0.02, 0.02, 0.02);
+    cushionMaterial.albedoColor = new Color3(0.01, 0.01, 0.01);
     cushionMaterial.metallic = 0;
     cushionMaterial.roughness = 1;
 
     const headband = makeHeadband(scene, "headband");
+    headband.inner.material = bodyMaterial;
+    headband.inner.getChildMeshes().forEach(mesh => mesh.material = bodyMaterial);
+    headband.cushion.material = cushionMaterial;
+
     headband.inner.position.y += 2;
 
     const muffX = 4.9;
@@ -58,7 +59,7 @@ const createScene = () => {
     leftEarMuff.root.scaling = new Vector3(muffScale, muffScale  * 1.1, muffScale);
     leftEarMuff.root.rotation.y = muffRotation;
     leftEarMuff.root.rotation.x = -Math.PI/16;
-    leftEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = muffMaterial);
+    leftEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = bodyMaterial);
     leftEarMuff.cushion.material = cushionMaterial;
 
     const rightEarMuff = makeMuff(scene, "rightEarMuff");
@@ -67,16 +68,16 @@ const createScene = () => {
     rightEarMuff.root.scaling = new Vector3(muffScale, muffScale  * 1.1, muffScale);
     rightEarMuff.root.rotation.y = -muffRotation;
     rightEarMuff.root.rotation.x = -Math.PI/16;
-    rightEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = material);
-    // rightEarMuff.cushion.material = cushionMaterial;
+    rightEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = bodyMaterial);
+    rightEarMuff.cushion.material = cushionMaterial;
 
-    // headband.left.rotation.z = Math.PI / 16;
-    // headband.right.rotation.z = -Math.PI / 16;
+    headband.left.rotation.z = Math.PI / 16;
+    headband.right.rotation.z = -Math.PI / 16;
 
     // const muffBraceMaxYRotation = 110 * Math.PI / 180;
     // const muffBraceMinYRotation = 0;
     // const muffBraceRotationSpeed = Math.PI/5000;
-    //
+
     // let muffBraceTargetYRotation = muffBraceMaxYRotation;
     // let muffBraceCurrentYRotation = muffBraceMinYRotation;
 
@@ -225,16 +226,22 @@ function makeMuffBrace(scene, center, radius, thickness, width, name) {
     ]
 
     const topArcs = Array.from({length: Math.floor(mainArcs.length / 2)}, (_, i) => i).map(i => mainArcs[i]); //First half of the arcs
-    const centerTopArcs = topArcs.slice(1, topArcs.length - 1); //Top arcs without first and last
+    const centerTopArcs = topArcs.slice(1, topArcs.length - 1); //Top arcs without first and last point
 
     const capArcsFront = [
-        rotatePointsByPointAndAxis(makeArc(arcTopCenter[arcTopCenter.length - 1], thickness / 2, capPointCount, 180, 360), arcTopCenter[arcTopCenter.length - 1], new Vector3(0, 1, 0), 90),
-        rotatePointsByPointAndAxis(makeArc(arcBottomCenter[arcBottomCenter.length - 1], thickness / 2, capPointCount, 180, 360), arcBottomCenter[arcBottomCenter.length - 1], new Vector3(0, 1, 0), 90),
+        makeArc(arcTopCenter[arcTopCenter.length - 1], thickness / 2, capPointCount, 180, 360)
+            .map(point => rotatePointByPointAndAxis(point, arcTopCenter[arcTopCenter.length - 1], new Vector3(0, 1, 0), 90)),
+
+        makeArc(arcBottomCenter[arcBottomCenter.length - 1], thickness / 2, capPointCount, 180, 360)
+            .map(point => rotatePointByPointAndAxis(point, arcBottomCenter[arcBottomCenter.length - 1], new Vector3(0, 1, 0), 90)),
     ]
 
     const capArcsBack = [
-        rotatePointsByPointAndAxis(makeArc(arcTopCenter[0], thickness / 2, capPointCount, 180, 360), arcTopCenter[0], new Vector3(0, 1, 0), 90),
-        rotatePointsByPointAndAxis(makeArc(arcBottomCenter[0], thickness / 2, capPointCount, 180, 360), arcBottomCenter[0], new Vector3(0, 1, 0), 90),
+        makeArc(arcTopCenter[0], thickness / 2, capPointCount, 180, 360)
+            .map(point => rotatePointByPointAndAxis(point,  arcTopCenter[0], new Vector3(0, 1, 0), 90)),
+
+        makeArc(arcBottomCenter[0], thickness / 2, capPointCount, 180, 360)
+            .map(point => rotatePointByPointAndAxis(point,  arcBottomCenter[0], new Vector3(0, 1, 0), 90)),
     ]
 
     const arcQuadRibbons = mainArcs.map((arc, i) => quadsFromLines(mainArcs[(i < mainArcs.length - 1 ? i + 1 : 0)], arc));
@@ -259,10 +266,12 @@ function makeMuffBrace(scene, center, radius, thickness, width, name) {
     let braceScrewLowerMiddleVertices = braceScrewBaseVertices.map(v => ({x: v.x, y: v.y, z: v.z})).map(v => new Vector3(v.x, v.y += width / 3, v.z));
     braceScrewLowerMiddleVertices.forEach(v => v.y = braceScrewLowerMiddleVertices[0].y);
     const braceScrewLowerMiddleCenter = pointsCenterOfMass(braceScrewLowerMiddleVertices.slice(0, -1)).add(new Vector3(0, 0.2, 0));
-    braceScrewLowerMiddleVertices = scalePointsRelativeToPoint(braceScrewLowerMiddleVertices, braceScrewLowerMiddleCenter, .7);
+    braceScrewLowerMiddleVertices = braceScrewLowerMiddleVertices.map(point => scalePointRelativeToPoint(point, braceScrewLowerMiddleCenter, .7));
 
     const braceScrewUpperMiddleCenter = braceScrewLowerMiddleCenter.add(new Vector3(0, width / 3, 0));
-    const braceScrewUpperMiddleVertices = rotatePointsByPointAndAxis(rotatePointsByPointAndAxis(makeCircle(braceScrewUpperMiddleCenter, width / 2, 17), braceScrewUpperMiddleCenter, new Vector3(1, 0, 0), 90), braceScrewUpperMiddleCenter, new Vector3(0, 1, 0), 180 - 45);
+    const braceScrewUpperMiddleVertices = makeCircle(braceScrewUpperMiddleCenter, width / 2, 17)
+        .map(point => rotatePointByPointAndAxis(point, braceScrewUpperMiddleCenter, new Vector3(1, 0, 0), 90))
+        .map(point => rotatePointByPointAndAxis(point, braceScrewUpperMiddleCenter, new Vector3(0, 1, 0), 180 - 45));
 
     const braceScrewTopVertices = braceScrewUpperMiddleVertices.map(v => v.add(new Vector3(0, width / 2, 0)));
 
@@ -304,19 +313,19 @@ function makeMuffCushion(scene, center, radius, thickness, name) {
     const subRadius = radius * 0.3;
 
     const baseArc = makeArc(center, radius * 1.075 - subRadius, pointCount, 0, 360);
-    const arcs = baseArc
+    const halfTorusArcs = baseArc
         .map(subCenter => [makeArc(subCenter, subRadius, subPointCount, -60, 180), subCenter])
         .map(([arc, arcCenter ]) => [arc, arcCenter, arcCenter.subtract(center).normalize()])
-        .map(([arc, arcCenter, centerVector], index) => [rotatePointsByPointAndAxis(arc, arcCenter, new Vector3(0, 0, 1), (360 / (pointCount - 1)) * index), center, centerVector])
-        .map(([arc, arcCenter, centerVector]) => rotatePointsByPointAndAxis(arc, arcCenter, centerVector, 90))
+        .map(([arc, arcCenter, centerVector], index) => [arc.map(point => rotatePointByPointAndAxis(point, arcCenter, new Vector3(0, 0, 1), (360 / (pointCount - 1)) * index)), center, centerVector])
+        .map(([arc, arcCenter, centerVector]) => arc.map(point => rotatePointByPointAndAxis(point, arcCenter, centerVector, 90)))
         .map(arc => [...arc, arc[arc.length - 1].add(new Vector3(0, 0, -thickness / 4)), arc[arc.length - 1].add(new Vector3(0, 0, -thickness / 4 * 3)), arc[arc.length - 1].add(new Vector3(0, 0, -thickness))])
         .map(arc => arc.map(point => point.add(new Vector3(0, 0, -thickness / 5))))
-        .map(arc => scalePointsRelativeToPointByVector(arc, center, new Vector3(1, 1, 0.8)));
+        .map(arc => arc.map(point => scalePointRelativeToPointByVector(point, center, new Vector3(1, 1, 0.8))));
 
-    const quads = arcs.flatMap((arc, i) => quadsFromLines(arc, arcs[(i < arcs.length - 1 ? i + 1 : 0)]));
+    const quads = halfTorusArcs.flatMap((arc, i) => quadsFromLines(arc, halfTorusArcs[(i < halfTorusArcs.length - 1 ? i + 1 : 0)]));
     const triangles = [
         ...quads.flatMap(quad => triangulateQuad(quad)),
-        ...makeTriangleFan(toReversed(arcs.map(arc => arc[arc.length - 1]))),
+        ...makeTriangleFan(toReversed(halfTorusArcs.map(arc => arc[arc.length - 1]))),
     ];
 
     return makeMeshFromPoints(scene, name, triangles.flat())
@@ -328,7 +337,7 @@ function makeMuffCushion(scene, center, radius, thickness, name) {
  * @param {Scene} scene - BabylonJS scene
  * @param {string} name - Name of the node
  *
- * @returns {{center: Mesh, left: Mesh, right: Mesh, inner: Mesh}} Headband meshes
+ * @returns {{center: Mesh, left: Mesh, right: Mesh, inner: Mesh, cushion: Mesh}} Headband meshes
  */
 function makeHeadband(scene, name) {
     const radius = 5.5;
@@ -378,6 +387,14 @@ function makeHeadband(scene, name) {
         right: 1
     }
 
+    const arcBasesCushion = [{
+        radius: arcBasesCenter[0].radius,
+        z: arcBasesCenter[0].z * 0.75
+    }, {
+        radius: arcBasesCenter[arcBasesCenterCounts.top - 1].radius,
+        z: arcBasesCenter[arcBasesCenterCounts.top - 1].z * 0.6
+    }]
+
     const arcBasesInner = [
         {radius: radius * 1.04, z: z * 0.8},
         {radius: radius * 1.04, z: -z * 0.8},
@@ -397,20 +414,23 @@ function makeHeadband(scene, name) {
     const rightStart = 180 + 15;
     const sideBarSize = 60;
 
-    const centerBar = makeHeadphonesBar(scene, `${name}_center`, arcBasesCenter, arcBasesCenterCounts, leftStart + sideBarSize + gapSize, rightStart - sideBarSize - gapSize);
-    const rightBar = makeHeadphonesBar(scene, `${name}_right`, arcBasesSides, arcBasesSidesCounts, leftStart, leftStart + sideBarSize);
-    const leftBar = makeHeadphonesBar(scene, `${name}_left`, arcBasesSides, arcBasesSidesCounts, rightStart - sideBarSize, rightStart);
-    const innerBar = makeHeadphonesBar(scene, `${name}_inner`, arcBasesInner, arcBasesInnerCounts, leftStart + gapSize, rightStart - gapSize);
+    const centerBar = makeHeadbandBar(scene, `${name}_center`, arcBasesCenter, arcBasesCenterCounts, leftStart + sideBarSize + gapSize, rightStart - sideBarSize - gapSize);
+    const rightBar = makeHeadbandBar(scene, `${name}_right`, arcBasesSides, arcBasesSidesCounts, leftStart, leftStart + sideBarSize);
+    const leftBar = makeHeadbandBar(scene, `${name}_left`, arcBasesSides, arcBasesSidesCounts, rightStart - sideBarSize, rightStart);
+    const innerBar = makeHeadbandBar(scene, `${name}_inner`, arcBasesInner, arcBasesInnerCounts, leftStart + gapSize, rightStart - gapSize);
+    const cushion = makeHeadbandCushion(scene, `${name}_cushion`, arcBasesCushion, leftStart + sideBarSize + gapSize * 5, rightStart - sideBarSize - gapSize * 5);
 
     centerBar.parent = innerBar;
     leftBar.parent = innerBar;
     rightBar.parent = innerBar;
+    cushion.parent = innerBar;
 
     return {
         center: centerBar,
         left: leftBar,
         right: rightBar,
-        inner: innerBar
+        inner: innerBar,
+        cushion: cushion
     };
 }
 
@@ -419,14 +439,14 @@ function makeHeadband(scene, name) {
  *
  * @param {Scene} scene - BabylonJS scene
  * @param {string} name - Name of the node
- * @param {{z: number, radius: number}[]} bases - List of points for the bases
+ * @param {{z: number, radius: number}[]} bases - List of points for the bases used to generate arcs used to make the mesh
  * @param {{top: number, left: number, bottom: number, right: number}} basesCounts - Number of points for each side
  * @param {number} startAngle - Start angle in degrees
  * @param {number} endAngle - End angle in degrees
  *
  * @returns {Mesh} Headband mesh
  */
-function makeHeadphonesBar (scene, name, bases, basesCounts, startAngle, endAngle) {
+function makeHeadbandBar(scene, name, bases, basesCounts, startAngle, endAngle) {
     const pointCount = 64;
     const arcs = bases.map(base => makeArc(new Vector3(0, 0, base.z), base.radius, pointCount, startAngle, endAngle));
 
@@ -444,13 +464,66 @@ function makeHeadphonesBar (scene, name, bases, basesCounts, startAngle, endAngl
         right: sideLines.right.map(line => line[i]),
     }));
 
-    const grids = pointsOnSides.map(points => gridFill(points.top, points.bottom, points.left, points.right));
+    const grids = pointsOnSides.map(points => unbalancedGridFill(points.top, points.bottom, points.left, points.right));
 
     const quads = [
         ...arcs.flatMap((_, i) => quadsFromLines(arcs[(i < arcs.length - 1 ? i + 1 : 0)], arcs[i])),
         ...grids[0].slice(0, -1).flatMap((_, i) => quadsFromLines(grids[0][i], grids[0][i + 1])),
-        ...reverseQuads(grids[1].slice(0, -1).flatMap((_, i) => quadsFromLines(grids[1][i], grids[1][i + 1]))),
+        ...grids[1].slice(0, -1).flatMap((_, i) => quadsFromLines(grids[1][i], grids[1][i + 1])).map(q => reverseQuad(q)),
     ];
+    const triangles = quads.flatMap(quad => triangulateQuad(quad));
+    return makeMeshFromPoints(scene, name, triangles.flat());
+}
+
+/**
+ * Generates center bar for the headphones
+ *
+ * @param {Scene} scene - BabylonJS scene
+ * @param {string} name - Name of the node
+ * @param {{z: number, radius: number}[]} bases - List of points for bases used to generate arcs used to make the mesh
+ * @param {number} startAngle - Start angle in degrees
+ * @param {number} endAngle - End angle in degrees
+ *
+ * @returns {Mesh} Headband mesh
+ */
+function makeHeadbandCushion(scene, name, bases, startAngle, endAngle) {
+    const pointCount = 64;
+
+    const topArc = makeArc(new Vector3(0, 0, bases[0].z), bases[0].radius, pointCount, startAngle, endAngle)
+        .map(point => point.add(new Vector3(0, -(bases[0].radius/20), 0)));
+
+    const bottomArc = makeArc(new Vector3(0, 0, bases[1].z), bases[1].radius, pointCount, startAngle, endAngle)
+        .map(point => point.add(new Vector3(0, -(bases[0].radius/20), 0)));
+
+    const zDifference = topArc[0].z - bottomArc[0].z;
+
+    const innerArcs = Array
+        .from({length: pointCount / 16}, (_, i) => i)
+        .map(i => makeArc(new Vector3(0, 0, bases[0].z - (zDifference / (pointCount / 16 + 1)) * (i + 1)), bases[0].radius, pointCount, startAngle, endAngle))
+        .map(arc => arc.map(point => point.add(new Vector3(0, -(bases[0].radius/20), 0))));
+
+    const bottomArcs = [
+        topArc,
+        ...innerArcs,
+        bottomArc
+    ]
+
+    const bottomEdgeLoop = [
+        ...topArc,
+        ...innerArcs.map(arc => arc[arc.length - 1]),
+        ...toReversed(bottomArc),
+        ...toReversed(innerArcs.map(arc => arc[0])),
+        topArc[0]
+    ]
+
+    const topEdgeLoop = bottomEdgeLoop
+        .map(point => point.add(new Vector3(0, (bases[0].radius/20), 0)))
+        .map(point => scalePointRelativeToPointByVector(point, new Vector3(0, 0, 0), new Vector3(1.1, 1, 1.1)));
+
+    const quads = [
+        ...bottomArcs.slice(0, -1).flatMap((arc, i) => quadsFromLines(bottomArcs[i + 1], arc)),
+        ...quadsFromLines(bottomEdgeLoop, topEdgeLoop),
+    ]
     const triangles = quads.flatMap(quad => triangulateQuad(quad));
     return makeMeshFromPoints(scene, name, triangles.flat());
 }
@@ -528,20 +601,6 @@ function makeArc(center, radius, pointCount, startAngle, endAngle) {
 }
 
 /**
- * Rotates a list of points around an axis
- *
- * @param {Vector3[]} points - List of points
- * @param {Vector3} center - Center of rotation
- * @param {Vector3} axis - Axis of rotation
- * @param {number} angle - Angle of rotation in degrees
- *
- * @returns {Vector3[]} Rotated points
- */
-function rotatePointsByPointAndAxis(points, center, axis, angle) {
-    return points.map(point => rotatePointByPointAndAxis(point, center, axis, angle));
-}
-
-/**
  * Rotates a point around an axis
  *
  * @param {Vector3} point - Point to rotate
@@ -556,33 +615,6 @@ function rotatePointByPointAndAxis(point, center, axis, angle) {
     const rotated = Vector3.TransformCoordinates(point.subtract(center), rotationMatrix);
     return rotated.add(center);
 }
-
-/**
- * Scales a list of points relative to a center point
- *
- * @param {Vector3[]} points - List of points
- * @param {Vector3} center - Center of scaling
- * @param {number} scale - Scale factor
- *
- * @returns {Vector3[]} Scaled points
- */
-function scalePointsRelativeToPoint(points, center, scale) {
-    return points.map(point => scalePointRelativeToPoint(point, center, scale));
-}
-
-/**
- * Scales a list of points relative to a center point by vector
- *
- * @param {Vector3[]} points - List of points
- * @param {Vector3} center - Center of scaling
- * @param {Vector3} scale - Scale factor
- *
- * @returns {Vector3[]} Scaled points
- */
-function scalePointsRelativeToPointByVector(points, center, scale) {
-    return points.map(point => scalePointRelativeToPointByVector(point, center, scale));
-}
-
 
 /**
  * Scales a point relative to a center point
@@ -610,70 +642,68 @@ function scalePointRelativeToPointByVector(point, center, scale) {
     return point.subtract(center).multiplyInPlace(scale).addInPlace(center);
 }
 
-/**
- * Generates debug cubes at points for debugging purposes, the cubes can grow in size sequentially if needed
- *
- * @param {Vector3[]} points
- * @param {number} radius
- * @param {boolean} growing - If true, new cubes will be larger than the previous ones
- *
- * @returns {Quad[][]} List of cubes
- */
-function makeDebugCubesAtPoints(points, radius, growing = false) {
-    /** @type {Quad[][]} */
-    const Cubes = [];
-
-    let i = 1;
-    for (const point of points) {
-        const cube = makeCube(point, radius * (growing ? i * 0.1 : 1));
-        Cubes.push(cube);
-        i += 1;
-    }
-
-    return Cubes;
-}
-
-
-/**
- * Generates a cube from a center point and a radius
- *
- * @param {Vector3} center
- * @param {number} radius
- *
- * @returns {Quad[]}
- */
-
-function makeCube(center, radius) {
-    /** @type {Quad[]} */
-    const quads = [];
-
-    const halfSize = radius / 2;
-
-    const a = new Vector3(center.x - halfSize, center.y - halfSize, center.z - halfSize);
-    const b = new Vector3(center.x + halfSize, center.y - halfSize, center.z - halfSize);
-    const c = new Vector3(center.x + halfSize, center.y + halfSize, center.z - halfSize);
-    const d = new Vector3(center.x - halfSize, center.y + halfSize, center.z - halfSize);
-
-    const e = new Vector3(center.x - halfSize, center.y - halfSize, center.z + halfSize);
-    const f = new Vector3(center.x + halfSize, center.y - halfSize, center.z + halfSize);
-    const g = new Vector3(center.x + halfSize, center.y + halfSize, center.z + halfSize);
-    const h = new Vector3(center.x - halfSize, center.y + halfSize, center.z + halfSize);
-
-    // noinspection JSCheckFunctionSignatures
-    quads.push([a, b, c, d]);
-    // noinspection JSCheckFunctionSignatures
-    quads.push([h, g, f, e]);
-    // noinspection JSCheckFunctionSignatures
-    quads.push([e, f, b, a]);
-    // noinspection JSCheckFunctionSignatures
-    quads.push([f, g, c, b]);
-    // noinspection JSCheckFunctionSignatures
-    quads.push([g, h, d, c]);
-    // noinspection JSCheckFunctionSignatures
-    quads.push([h, e, a, d]);
-
-    return quads;
-}
+// /**
+//  * Generates debug cubes at points for debugging purposes, the cubes can grow in size sequentially if needed
+//  *
+//  * @param {Vector3[]} points
+//  * @param {number} radius
+//  * @param {boolean} growing - If true, new cubes will be larger than the previous ones
+//  *
+//  * @returns {Quad[][]} List of cubes
+//  */
+// function makeDebugCubesAtPoints(points, radius, growing = false) {
+//     /** @type {Quad[][]} */
+//     const Cubes = [];
+//
+//     let i = 1;
+//     for (const point of points) {
+//         const cube = makeCube(point, radius * (growing ? i * 0.1 : 1));
+//         Cubes.push(cube);
+//         i += 1;
+//     }
+//
+//     return Cubes;
+// }
+//
+// /**
+//  * Generates a cube from a center point and a radius
+//  *
+//  * @param {Vector3} center
+//  * @param {number} radius
+//  *
+//  * @returns {Quad[]}
+//  */
+// function makeCube(center, radius) {
+//     /** @type {Quad[]} */
+//     const quads = [];
+//
+//     const halfSize = radius / 2;
+//
+//     const a = new Vector3(center.x - halfSize, center.y - halfSize, center.z - halfSize);
+//     const b = new Vector3(center.x + halfSize, center.y - halfSize, center.z - halfSize);
+//     const c = new Vector3(center.x + halfSize, center.y + halfSize, center.z - halfSize);
+//     const d = new Vector3(center.x - halfSize, center.y + halfSize, center.z - halfSize);
+//
+//     const e = new Vector3(center.x - halfSize, center.y - halfSize, center.z + halfSize);
+//     const f = new Vector3(center.x + halfSize, center.y - halfSize, center.z + halfSize);
+//     const g = new Vector3(center.x + halfSize, center.y + halfSize, center.z + halfSize);
+//     const h = new Vector3(center.x - halfSize, center.y + halfSize, center.z + halfSize);
+//
+//     // noinspection JSCheckFunctionSignatures
+//     quads.push([a, b, c, d]);
+//     // noinspection JSCheckFunctionSignatures
+//     quads.push([h, g, f, e]);
+//     // noinspection JSCheckFunctionSignatures
+//     quads.push([e, f, b, a]);
+//     // noinspection JSCheckFunctionSignatures
+//     quads.push([f, g, c, b]);
+//     // noinspection JSCheckFunctionSignatures
+//     quads.push([g, h, d, c]);
+//     // noinspection JSCheckFunctionSignatures
+//     quads.push([h, e, a, d]);
+//
+//     return quads;
+// }
 
 /**
  * Generates quads from two lines of points
@@ -845,7 +875,7 @@ function toReversed(array) {
  *
  * @returns {Vector3[][]}
  */
-function gridFill(top, bottom, left, right) {
+function unbalancedGridFill(top, bottom, left, right) {
     const numberOfLinesToFill = left.length;
     const numberOfColumnsToFill = top.length - 2;
 
@@ -865,9 +895,7 @@ function gridFill(top, bottom, left, right) {
             const vectorFromTopLeftToCenter = center.subtract(topLeft);
 
             const vectorFromTopLeftToBottomRight = vectorFromTopLeftToCenter.scale(2);
-            const bottomRight = topLeft.add(vectorFromTopLeftToBottomRight);
-
-            lines[i][j] = bottomRight;
+            lines[i][j] = topLeft.add(vectorFromTopLeftToBottomRight);
         }
 
         lines[i][numberOfColumnsToFill + 1] = right[i - 1];
@@ -880,7 +908,6 @@ function gridFill(top, bottom, left, right) {
     return lines;
 }
 
-
 /**
  * Reverses a quad
  *
@@ -892,13 +919,3 @@ function reverseQuad(quad) {
     return [quad[3], quad[2], quad[1], quad[0]];
 }
 
-/**
- * Reverses a list of quads
- *
- * @param {Quad[]} quads
- *
- * @returns {Quad[]}
- */
-function reverseQuads(quads) {
-    return quads.map(reverseQuad);
-}
