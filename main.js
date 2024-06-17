@@ -46,7 +46,7 @@ const createScene = () => {
     headband.inner.getChildMeshes().forEach(mesh => mesh.material = bodyMaterial);
     headband.cushion.material = cushionMaterial;
 
-    headband.inner.position.y += 2;
+    headband.inner.position.y += 4;
 
     const muffX = 4.9;
     const muffY = -4.8 * 1.05;
@@ -62,7 +62,7 @@ const createScene = () => {
     leftEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = bodyMaterial);
     leftEarMuff.cushion.material = cushionMaterial;
 
-    const rightEarMuff = makeMuff(scene, "rightEarMuff");
+    const rightEarMuff = makeMuff(scene, "rightEarMuff", true);
     rightEarMuff.root.parent = headband.right;
     rightEarMuff.root.position = new Vector3(muffX, muffY, 0);
     rightEarMuff.root.scaling = new Vector3(muffScale, muffScale  * 1.1, muffScale);
@@ -135,10 +135,11 @@ window.addEventListener('resize', () => {
  *
  * @param scene - BabylonJS scene
  * @param {string} name - Name of the node
+ * @param {boolean} hasButtons - If true, the muff will have a buttons
  *
- * @returns {{root: TransformNode, base: Mesh, cushion: Mesh, brace: Mesh}}
+ * @returns {{root: TransformNode, base: Mesh, cushion: Mesh, brace: Mesh, buttons: Mesh[] | undefined}}
  */
-function makeMuff(scene, name) {
+function makeMuff(scene, name, hasButtons = false) {
     const center = new Vector3(0, 0, 0);
     const radius = 3.5;
 
@@ -152,17 +153,21 @@ function makeMuff(scene, name) {
     const base = makeMuffBase(scene, center, radius, baseThickness, `${name}_base`);
     const cushion = makeMuffCushion(scene, center, radius, cushionThickness, `${name}_cushion`);
     const brace = makeMuffBrace(scene, center, radius * 1.01, braceThickness, braceWidth, `${name}_brace`);
+    const buttons = hasButtons ? makeMuffButtons(scene, center, radius, baseThickness / 3, 3, 72, 3, `${name}_buttons`) : undefined;
+
     brace.parent = root;
     base.parent = brace;
     base.rotation.x = Math.PI/16;
     cushion.parent = base;
     cushion.position = new Vector3(0, 0, baseThickness);
+    buttons?.forEach(button => button.parent = base);
 
     return {
         root,
         base,
         cushion,
-        brace
+        brace,
+        buttons
     };
 }
 
@@ -186,11 +191,62 @@ function makeMuffBase(scene, center, radius, thickness, name) {
     const quads = quadsFromLines(innerCircle, outerCircle);
     const triangles = [
         ...quads.flatMap(quad => triangulateQuad(quad)),
-        // ...makeTriangleFan(toReversed(innerCircle)),
         ...makeTriangleFan(outerCircle)
     ];
 
     return makeMeshFromPoints(scene, name, triangles.flat())
+}
+
+/**
+ * Generates base of the ear muff
+ *
+ * @param scene - BabylonJS scene
+ * @param {Vector3} center - Center of the base
+ * @param {number} radius - Radius of the base
+ * @param {number} thickness - Thickness of the base
+ * @param {number} amount - Amount of buttons
+ * @param {number} totalAngle - Total angle of the buttons
+ * @param {number} gapAngle - Gap between the buttons
+ * @param {string} name - Name of the nodes
+ *
+ * @returns {Mesh[]} Buttons meshes
+ */
+function makeMuffButtons(scene, center, radius, thickness, amount, totalAngle, gapAngle, name) {
+    const pointCountPerButton = 64 * (totalAngle / 360)
+    const anglePerButton = (totalAngle - gapAngle * (amount - 1)) / amount
+    console.log(anglePerButton)
+    const startAngle = 270 - totalAngle / 2
+
+    /** @type {Mesh[]} */
+    const buttons = [];
+
+    for (let i = 0; i < amount; i++) {
+        const buttonStartAngle = startAngle + anglePerButton * i + gapAngle * i;
+        const buttonEndAngle = startAngle + anglePerButton * (i + 1) + gapAngle * i;
+
+        const arcs = [
+            makeArc(center.add(new Vector3(0, 0, thickness / 2)), radius * 0.98, pointCountPerButton, buttonStartAngle, buttonEndAngle),
+            makeArc(center.add(new Vector3(0, 0, thickness / 2)), radius * 1.01, pointCountPerButton, buttonStartAngle, buttonEndAngle),
+            makeArc(center.add(new Vector3(0, 0, thickness / 2)), radius * 1.04, pointCountPerButton, buttonStartAngle, buttonEndAngle),
+            makeArc(center.add(new Vector3(0, 0, -thickness / 3)), radius * 1.04, pointCountPerButton, buttonStartAngle, buttonEndAngle),
+            makeArc(center.add(new Vector3(0, 0, -thickness / 2)), radius * 1.04, pointCountPerButton, buttonStartAngle, buttonEndAngle),
+            makeArc(center.add(new Vector3(0, 0, -thickness / 2)), radius * 1.01, pointCountPerButton, buttonStartAngle, buttonEndAngle),
+            makeArc(center.add(new Vector3(0, 0, -thickness / 2)), radius * 0.98, pointCountPerButton, buttonStartAngle, buttonEndAngle),
+        ]
+
+        const quads = [
+            ...arcs.slice(0, -1).flatMap((_, i) => quadsFromLines(arcs[i], arcs[i+1]))
+        ];
+        const triangles = [
+            ...quads.flatMap(quad => triangulateQuad(quad)),
+            ...makeTriangleFan(toReversed(arcs.map(arc => arc[arc.length - 1]))),
+            ...makeTriangleFan(arcs.map(arc => arc[0])),
+        ];
+
+        buttons.push(makeMeshFromPoints(scene, name, triangles.flat()))
+    }
+
+    return buttons;
 }
 
 /**
@@ -227,6 +283,9 @@ function makeMuffBrace(scene, center, radius, thickness, width, name) {
 
     const topArcs = Array.from({length: Math.floor(mainArcs.length / 2)}, (_, i) => i).map(i => mainArcs[i]); //First half of the arcs
     const centerTopArcs = topArcs.slice(1, topArcs.length - 1); //Top arcs without first and last point
+
+    const bottomArcs = Array.from({length: Math.floor(mainArcs.length / 2)}, (_, i) => i).map(i => mainArcs[i + Math.floor(mainArcs.length / 2)]); //Second half of the arcs
+    const centerBottomArcs = bottomArcs.slice(1, bottomArcs.length - 1); //Bottom arcs without first and last point
 
     const capArcsFront = [
         makeArc(arcTopCenter[arcTopCenter.length - 1], thickness / 2, capPointCount, 180, 360)
@@ -288,6 +347,8 @@ function makeMuffBrace(scene, center, radius, thickness, width, name) {
         ...quads.flatMap(quad => triangulateQuad(quad)),
         ...makeTriangleFan([...capArcsFront[0], ...centerTopArcs.map(arc => arc[arc.length - 1])]),
         ...makeTriangleFan(toReversed([...capArcsBack[0], ...centerTopArcs.map(arc => arc[0])])),
+        ...makeTriangleFan([...capArcsBack[1], ...centerBottomArcs.map(arc => arc[0])]),
+        ...makeTriangleFan(toReversed([...capArcsFront[1], ...centerBottomArcs.map(arc => arc[arc.length - 1])])),
     ];
 
     return makeMeshFromPoints(scene, name, triangles.flat())
