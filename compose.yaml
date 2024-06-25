@@ -1,0 +1,6 @@
+services:
+  web:
+    build: .
+    container_name: olga-webgl
+    ports:
+      - "4009:5000"
