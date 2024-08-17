@@ -3,41 +3,127 @@ import {
     Color3,
     CubeTexture,
     Engine,
-    HemisphericLight,
+    PointLight,
     Matrix,
     Mesh,
     PBRMaterial,
     Scene,
     TransformNode,
     Vector3,
-    VertexData
+    VertexData,
+    ShadowGenerator
 } from '@babylonjs/core';
 
 /**
+ * @typedef {{body: {reflectionColor: Color3, albedoColor: Color3}, muff: {reflectionColor: Color3, albedoColor: Color3}}} ColorsDefinition
  * @typedef {[Vector3, Vector3, Vector3, Vector3]} Quad
  * @typedef {[Vector3, Vector3, Vector3]} Triangle
  */
 
-const canvas = document.getElementsByTagName('canvas')[0];
-const engine = new Engine(canvas, true);
+// noinspection JSValidateTypes
+/** @type {{black: ColorsDefinition; white: ColorsDefinition; cream: ColorsDefinition; pink: ColorsDefinition}} */
+const colors = {
+    black: {
+        body: {
+            albedoColor: new Color3(0.05, 0.05, 0.05),
+            reflectionColor: new Color3(0.5, 0.5, 0.5),
+        },
+        muff: {
+            albedoColor: new Color3(0.01, 0.01, 0.01),
+            reflectionColor: new Color3(0.5, 0.5, 0.5),
+        },
+    },
+    white: {
+        body: {
+            albedoColor: new Color3(.8, .8, .8),
+            reflectionColor: new Color3(.8, .8, .8),
+        },
+        muff: {
+            albedoColor: new Color3(1, 1, 1),
+            reflectionColor: new Color3(1, 1, 1),
+        },
+    },
+    pink: {
+        body: {
+            albedoColor: new Color3(0.9, 0.898 * 0.7, 0.925 * 0.7),
+            reflectionColor: new Color3(0.9, 0.898 * 0.7, 0.925 * 0.7),
+        },
+        muff: {
+            albedoColor: new Color3(1, 0.898, 0.925),
+            reflectionColor: new Color3(1, 0.898, 0.925),
+        },
+    },
+    cream: {
+        body: {
+            albedoColor: new Color3(0.992 * 0.9, 0.984 * 0.9, 0.831 * 0.7),
+            reflectionColor: new Color3(0.992 * 0.9, 0.984 * 0.9, 0.831 * 0.7),
+        },
+        muff: {
+            albedoColor: new Color3(0.992, 0.984, 0.831),
+            reflectionColor: new Color3(0.992, 0.984, 0.831),
+        },
+    },
+}
 
-const createScene = () => {
+let selectedColor = "black";
+let activeColor = "black";
+
+let muffYRotationFactor = 20;
+let muffXRotationFactor = 50;
+let extensionFactor = 50;
+
+function bindColorButtons() {
+    document.querySelectorAll(".colorSelector-color").forEach(colorElement => colorElement.addEventListener("click", () => selectColor(colorElement.dataset.color)))
+}
+
+/**
+ * @param {string} color
+ */
+function selectColor(color) {
+    selectedColor = color;
+}
+
+function bindRotationRanges() {
+    document.querySelectorAll(".rangeSelector-input").forEach(inputElement => inputElement.addEventListener("change", (event) => applyRotationFactor(event.target.value, event.target.dataset.axis)))
+}
+
+/**
+ * @param {number} rotationFactor
+ * @param {string} name
+ */
+function applyRotationFactor(rotationFactor, name) {
+    switch (name) {
+        case "muff-y":
+            muffYRotationFactor = rotationFactor
+            break;
+        case "muff-x":
+            muffXRotationFactor = rotationFactor
+            break;
+        case "extension":
+            extensionFactor = rotationFactor
+            break;
+    }
+}
+
+/**
+ * @param {AbstractEngine} engine
+ */
+const createScene = (engine) => {
     const scene = new Scene(engine);
     const camera = new ArcRotateCamera("camera", 3 * (Math.PI / 2), Math.PI / 2, 25, new Vector3(0, 1.75, 0), scene);
     camera.attachControl(canvas, true);
 
-    const light = new HemisphericLight("light", new Vector3(1, 1, 0), scene);
-    light.intensity = .75;
+    const light = new PointLight("light", new Vector3(0, 50, -50), scene);
 
     const bodyMaterial = new PBRMaterial("bodyMaterial", scene);
-    bodyMaterial.reflectionColor = new Color3(0.05, 0.05, 0.05);
-    bodyMaterial.albedoColor = new Color3(0.05, 0.05, 0.05);
+    bodyMaterial.reflectionColor = colors.black.body.reflectionColor;
+    bodyMaterial.albedoColor = colors.black.body.albedoColor;
     bodyMaterial.metallic = 0;
     bodyMaterial.roughness = 0.5;
 
     const cushionMaterial = new PBRMaterial("cushionMaterial", scene);
-    cushionMaterial.reflectionColor = new Color3(0.05, 0.05, 0.05);
-    cushionMaterial.albedoColor = new Color3(0.01, 0.01, 0.01);
+    cushionMaterial.reflectionColor = colors.black.muff.reflectionColor;
+    cushionMaterial.albedoColor = colors.black.muff.albedoColor;
     cushionMaterial.metallic = 0;
     cushionMaterial.roughness = 1;
 
@@ -71,64 +157,125 @@ const createScene = () => {
     rightEarMuff.root.getChildMeshes().forEach(mesh => mesh.material = bodyMaterial);
     rightEarMuff.cushion.material = cushionMaterial;
 
-    headband.left.rotation.z = Math.PI / 16;
-    headband.right.rotation.z = -Math.PI / 16;
+    const shadowGenerator = new ShadowGenerator(1024 * 4, light);
+    shadowGenerator.useBlurExponentialShadowMap = true;
+    shadowGenerator.useKernelBlur = true;
 
-    // const muffBraceMaxYRotation = 110 * Math.PI / 180;
-    // const muffBraceMinYRotation = 0;
-    // const muffBraceRotationSpeed = Math.PI/5000;
+    shadowGenerator.addShadowCaster(headband.inner)
+    shadowGenerator.addShadowCaster(headband.left)
+    shadowGenerator.addShadowCaster(headband.right)
+    shadowGenerator.addShadowCaster(headband.center)
+    shadowGenerator.addShadowCaster(headband.cushion)
 
-    // let muffBraceTargetYRotation = muffBraceMaxYRotation;
-    // let muffBraceCurrentYRotation = muffBraceMinYRotation;
+    shadowGenerator.addShadowCaster(leftEarMuff.base);
+    shadowGenerator.addShadowCaster(leftEarMuff.brace);
+    shadowGenerator.addShadowCaster(leftEarMuff.cushion);
+    leftEarMuff.buttons?.forEach(button => shadowGenerator.addShadowCaster(button))
+
+    shadowGenerator.addShadowCaster(rightEarMuff.base);
+    shadowGenerator.addShadowCaster(rightEarMuff.brace);
+    shadowGenerator.addShadowCaster(rightEarMuff.cushion);
+    rightEarMuff.buttons?.forEach(button => shadowGenerator.addShadowCaster(button))
+
+    headband.left.rotation.z = 1.5 * Math.PI / 16;
+    headband.right.rotation.z = 1.5 * -Math.PI / 16;
+
+    const muffYRotation = {
+        max: 110 * Math.PI / 180,
+        min: 20 * Math.PI / 180,
+        current: 0,
+        real: 0,
+        speed: Math.PI / 2000
+    }
+
+    const muffXRotation = {
+        max: 50 * Math.PI / 180,
+        min: 5 * Math.PI / 180,
+        current: 0,
+        real: 0,
+        speed: Math.PI / 2000
+    }
+
+    const headbandExtension = {
+        max: 1.5 * Math.PI / 16,
+        min: 0,
+        current: 0,
+        real: 0,
+        speed: Math.PI / 5000
+    }
 
     scene.createDefaultEnvironment({
         createSkybox: true,
         skyboxSize: 100,
-        skyboxColor: new Color3(0.9, 0.9, 0.9),
+        skyboxColor: new Color3(1, 1, 1),
         groundSize: 100,
-        groundColor: new Color3(0.9, 0.9, 0.9),
+        groundYBias: 2,
+        groundColor: new Color3(1, 1, 1),
         environmentTexture: CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/environments/environmentSpecular.env", scene)
     })
 
-    let isAnimating = false;
-    function animate() {
-        isAnimating = true;
-    }
-    //
-    // scene.registerBeforeRender(() => {
-    //     if (!isAnimating) return
-    //
-    //     const deltaTime = scene.getEngine().getDeltaTime()
-    //
-    //     const diff = muffBraceTargetYRotation - muffBraceCurrentYRotation;
-    //     const sign = Math.sign(diff);
-    //     const rotation = sign * Math.min(Math.abs(diff), muffBraceRotationSpeed * deltaTime);
-    //
-    //     muffBraceCurrentYRotation += rotation;
-    //
-    //     if (muffBraceCurrentYRotation >= muffBraceMaxYRotation) {
-    //         muffBraceCurrentYRotation = muffBraceMaxYRotation;
-    //         muffBraceTargetYRotation = muffBraceMinYRotation;
-    //     } else if (muffBraceCurrentYRotation <= muffBraceMinYRotation) {
-    //         muffBraceCurrentYRotation = muffBraceMinYRotation;
-    //         muffBraceTargetYRotation = muffBraceMaxYRotation;
-    //     }
-    //
-    //     leftEarMuff.brace.rotation.y = muffBraceCurrentYRotation - 20 * Math.PI / 180;
-    //     rightEarMuff.brace.rotation.y = -muffBraceCurrentYRotation + 20 * Math.PI / 180;
-    // });
+    scene.registerBeforeRender(() => {
+        const deltaTime = scene.getEngine().getDeltaTime()
 
-    return {scene, animate};
+        if (selectedColor !== activeColor) {
+            const color = colors[selectedColor];
+            if (color) {
+                bodyMaterial.albedoColor = color.body.albedoColor;
+                bodyMaterial.reflectionColor = color.body.reflectionColor;
+
+                cushionMaterial.albedoColor = color.muff.albedoColor;
+                cushionMaterial.reflectionColor = color.muff.reflectionColor;
+
+                activeColor = selectedColor;
+            }
+        }
+
+        recalculateRotation(muffYRotation, muffYRotationFactor, deltaTime)
+        leftEarMuff.brace.rotation.y = muffYRotation.real;
+        rightEarMuff.brace.rotation.y = -muffYRotation.real;
+
+        recalculateRotation(muffXRotation, muffXRotationFactor, deltaTime)
+        leftEarMuff.base.rotation.x = muffXRotation.real;
+        rightEarMuff.base.rotation.x = muffXRotation.real;
+
+        recalculateRotation(headbandExtension, extensionFactor, deltaTime)
+        headband.left.rotation.z = headbandExtension.real;
+        headband.right.rotation.z = -headbandExtension.real;
+    });
+
+    return scene;
 };
 
-const {scene, animate} = createScene();
-engine.runRenderLoop(() => {
-    scene.render();
-});
+/**
+ * @param {{current: number, min: number, max: number, real: number, speed: number}} properties
+ * @param {number} factor
+ * @param {number} deltaTime
+ */
+function recalculateRotation(properties, factor, deltaTime) {
+    const target = lerp(0, properties.max, factor / 100)
 
-window.addEventListener('resize', () => {
-    engine.resize();
-});
+    const diff = target - properties.current;
+    const sign = Math.sign(diff)
+    properties.current = clamp(properties.current + sign * properties.speed * deltaTime, properties.current, target)
+    properties.real = properties.current - properties.min;
+}
+
+const canvas = document.getElementsByTagName('canvas')[0];
+if (canvas && canvas instanceof HTMLCanvasElement) {
+    bindColorButtons();
+    bindRotationRanges();
+
+    const engine = new Engine(canvas, true);
+
+    const scene = createScene(engine);
+    engine.runRenderLoop(() => {
+        scene.render();
+    });
+
+    window.addEventListener('resize', () => {
+        engine.resize();
+    });
+}
 
 /**
  * Generates ear muff
@@ -214,7 +361,6 @@ function makeMuffBase(scene, center, radius, thickness, name) {
 function makeMuffButtons(scene, center, radius, thickness, amount, totalAngle, gapAngle, name) {
     const pointCountPerButton = 64 * (totalAngle / 360)
     const anglePerButton = (totalAngle - gapAngle * (amount - 1)) / amount
-    console.log(anglePerButton)
     const startAngle = 270 - totalAngle / 2
 
     /** @type {Mesh[]} */
@@ -703,69 +849,6 @@ function scalePointRelativeToPointByVector(point, center, scale) {
     return point.subtract(center).multiplyInPlace(scale).addInPlace(center);
 }
 
-// /**
-//  * Generates debug cubes at points for debugging purposes, the cubes can grow in size sequentially if needed
-//  *
-//  * @param {Vector3[]} points
-//  * @param {number} radius
-//  * @param {boolean} growing - If true, new cubes will be larger than the previous ones
-//  *
-//  * @returns {Quad[][]} List of cubes
-//  */
-// function makeDebugCubesAtPoints(points, radius, growing = false) {
-//     /** @type {Quad[][]} */
-//     const Cubes = [];
-//
-//     let i = 1;
-//     for (const point of points) {
-//         const cube = makeCube(point, radius * (growing ? i * 0.1 : 1));
-//         Cubes.push(cube);
-//         i += 1;
-//     }
-//
-//     return Cubes;
-// }
-//
-// /**
-//  * Generates a cube from a center point and a radius
-//  *
-//  * @param {Vector3} center
-//  * @param {number} radius
-//  *
-//  * @returns {Quad[]}
-//  */
-// function makeCube(center, radius) {
-//     /** @type {Quad[]} */
-//     const quads = [];
-//
-//     const halfSize = radius / 2;
-//
-//     const a = new Vector3(center.x - halfSize, center.y - halfSize, center.z - halfSize);
-//     const b = new Vector3(center.x + halfSize, center.y - halfSize, center.z - halfSize);
-//     const c = new Vector3(center.x + halfSize, center.y + halfSize, center.z - halfSize);
-//     const d = new Vector3(center.x - halfSize, center.y + halfSize, center.z - halfSize);
-//
-//     const e = new Vector3(center.x - halfSize, center.y - halfSize, center.z + halfSize);
-//     const f = new Vector3(center.x + halfSize, center.y - halfSize, center.z + halfSize);
-//     const g = new Vector3(center.x + halfSize, center.y + halfSize, center.z + halfSize);
-//     const h = new Vector3(center.x - halfSize, center.y + halfSize, center.z + halfSize);
-//
-//     // noinspection JSCheckFunctionSignatures
-//     quads.push([a, b, c, d]);
-//     // noinspection JSCheckFunctionSignatures
-//     quads.push([h, g, f, e]);
-//     // noinspection JSCheckFunctionSignatures
-//     quads.push([e, f, b, a]);
-//     // noinspection JSCheckFunctionSignatures
-//     quads.push([f, g, c, b]);
-//     // noinspection JSCheckFunctionSignatures
-//     quads.push([g, h, d, c]);
-//     // noinspection JSCheckFunctionSignatures
-//     quads.push([h, e, a, d]);
-//
-//     return quads;
-// }
-
 /**
  * Generates quads from two lines of points
  *
@@ -809,7 +892,7 @@ function triangulateQuad(quad) {
 }
 
 /**
- * Generates indices from a list of points
+ * Generates mesh indices from a list of points
  *
  * @param {Vector3[]} rawPoints
  *
@@ -841,8 +924,6 @@ function indexPoints(rawPoints) {
             indices.push(pointIndexMap.get(hash));
         }
     }
-
-    console.log(points.length)
 
     return {
         indices,
@@ -927,7 +1008,7 @@ function toReversed(array) {
 }
 
 /**
- * Generates a grid of points by averaging positions of the surrounding points
+ * Generates a grid of points by averaging positions of the surrounding points with strong bias towards left top corner
  *
  * @param {Vector3[]} top
  * @param {Vector3[]} bottom
@@ -964,8 +1045,6 @@ function unbalancedGridFill(top, bottom, left, right) {
 
     lines[numberOfLinesToFill + 1] = bottom;
 
-    console.log(lines)
-
     return lines;
 }
 
@@ -980,3 +1059,29 @@ function reverseQuad(quad) {
     return [quad[3], quad[2], quad[1], quad[0]];
 }
 
+/**
+ * Linear interpolation between two numbers
+ *
+ * @param {number} start
+ * @param {number} end
+ * @param {number} factor
+ *
+ * @returns {number}
+ */
+function lerp(start, end, factor){
+    return (1-factor)*start+factor*end
+}
+
+/**
+ * Clamps a number
+ *
+ * @param {number} number
+ * @param {number} min
+ * @param {number} max
+ *
+ * @returns {number}
+ */
+function clamp(number, min, max) {
+    if (min > max) [min, max] = [max, min]
+    return Math.max(min, Math.min(number, max));
+}

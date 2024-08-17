@@ -1,0 +1,16 @@
+.rangeSelector {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    padding: 1rem;
+    gap: 1rem;
+}
+
+.rangeSelector-label {
+    text-align: center;
+    font-size: 1.5rem;
+}
+
+.rangeSelector-input {
+
+}

@@ -3,27 +3,56 @@
     <head>
         <meta charset="UTF-8">
         <title>babylon.js</title>
-
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-            html, body {
-                overflow: hidden;
-                width: 100%;
-                height: 100%;
-            }
-            #renderCanvas {
-                width: 100%;
-                height: 100%;
-                touch-action: none;
-            }
-        </style>
+        <script type="module" src="main.js" defer async></script>
+        <link href="color-selector.css" rel="stylesheet">
+        <link href="range-selector.css" rel="stylesheet">
+        <link href="style.css" rel="stylesheet">
     </head>
     <body>
         <canvas id="renderCanvas"></canvas>
-        <script type="module" src="main.js"></script>
+        <div class="settings">
+            <div class="colorSelector">
+                <div class="colorSelector-title">
+                    Color
+                </div>
+                <div class="colorSelector-colors">
+                    <button class="colorSelector-color" data-color="black">
+                        <span class="colorSelector-colorName">Black</span>
+                        <span class="colorSelector-colorBox colorSelector-colorBox--black"></span>
+                    </button>
+                    <button class="colorSelector-color" data-color="white">
+                        <span class="colorSelector-colorName">White</span>
+                        <span class="colorSelector-colorBox colorSelector-colorBox--white"></span>
+                    </button>
+                    <button class="colorSelector-color" data-color="cream">
+                        <span class="colorSelector-colorName">Cream</span>
+                        <span class="colorSelector-colorBox colorSelector-colorBox--cream"></span>
+                    </button>
+                    <button class="colorSelector-color" data-color="pink">
+                        <span class="colorSelector-colorName">Pink</span>
+                        <span class="colorSelector-colorBox colorSelector-colorBox--pink"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="rangeSelector">
+                <label for="muff-y" class="rangeSelector-label">
+                    Muff horizontal rotation
+                </label>
+                <input class="rangeSelector-input" id="muff-y" type="range" min="0" max="100" value="20" data-axis="muff-y" />
+            </div>
+            <div class="rangeSelector">
+                <label for="muff-x" class="rangeSelector-label">
+                    Muff vertical rotation
+                </label>
+                <input class="rangeSelector-input" id="muff-x" type="range" min="0" max="100" value="50" data-axis="muff-x" />
+            </div>
+            <div class="rangeSelector">
+                <label for="extension" class="rangeSelector-label">
+                    Extension
+                </label>
+                <input class="rangeSelector-input" id="extension" type="range" min="0" max="100" value="50" data-axis="extension" />
+            </div>
+        </div>
+
     </body>
 </html>

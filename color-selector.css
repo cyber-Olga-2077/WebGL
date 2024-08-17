@@ -1,0 +1,54 @@
+.colorSelector {
+    display: flex;
+    flex-direction: column;
+    width: 400px;
+    padding: 1rem;
+    gap: 1rem;
+}
+
+.colorSelector-title {
+    text-align: center;
+    font-size: 1.5rem;
+}
+
+.colorSelector-colors {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
+}
+
+.colorSelector-color {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+    border: none;
+}
+
+.colorSelector-colorName {
+    font-size: 1.25rem;
+}
+
+.colorSelector-colorBox {
+    width: 2rem;
+    height: 2rem;
+
+    border: 2px solid black;
+}
+
+.colorSelector-colorBox.colorSelector-colorBox--black {
+    background: rgb(13, 13, 13);
+}
+
+.colorSelector-colorBox.colorSelector-colorBox--white {
+    background: rgb(204, 204, 204);
+}
+
+.colorSelector-colorBox.colorSelector-colorBox--cream {
+    background: rgb(253, 251, 212);
+}
+
+.colorSelector-colorBox.colorSelector-colorBox--pink {
+    background: rgb(255, 229, 236);
+}
